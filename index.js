@@ -24,16 +24,88 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    // Send a ping to confirm a successful connection
+
+    const propertyCollection = client.db("homeNestDB").collection("properties");
+    const reviewCollection = client.db("homeNestDB").collection("reviews");
+
+    // Add Property (POST)
+    app.post('/properties', async (req, res) => {
+      const property = req.body;
+      const result = await propertyCollection.insertOne(property);
+      res.send(result);
+    });
+
+    // Get All Properties (GET)
+    app.get('/properties', async (req, res) => {
+      const result = await propertyCollection.find().toArray();
+      res.send(result);
+    });
+
+    // Get Single Property (GET by id)
+    const { ObjectId } = require('mongodb');
+    app.get('/properties/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await propertyCollection.findOne(query);
+      res.send(result);
+    });
+
+    // Delete Property
+    app.delete('/properties/:id', async (req, res) => {
+      const id = req.params.id;
+      const result = await propertyCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
+
+    // Update Property
+    app.patch('/properties/:id', async (req, res) => {
+      const id = req.params.id;
+      const updated = req.body;
+      const result = await propertyCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updated }
+      );
+      res.send(result);
+    });
+
+    // Add Review
+    app.post('/reviews', async (req, res) => {
+      const review = req.body;
+      const result = await reviewCollection.insertOne(review);
+      res.send(result);
+    });
+
+    // Get All Reviews
+    app.get('/reviews', async (req, res) => {
+    const result = await reviewCollection.find().toArray();
+    res.send(result);
+    });
+
+    // Get Reviews by Property
+    app.get('/reviews/:propertyId', async (req, res) => {
+    const propertyId = req.params.propertyId; // string
+    const result = await reviewCollection.find({ propertyId: propertyId }).toArray();
+    res.send(result);
+    });
+
+
+    // Get My Ratings
+    app.get('/my-ratings', async (req, res) => {
+      const email = req.query.email;
+      const result = await reviewCollection.find({ reviewerEmail: email }).toArray();
+      res.send(result);
+    });
+
+    console.log("HomeNest API routes ready!");
+
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    console.log("Pinged MongoDB! You are connected.");
   } finally {
-    // Ensures that the client will close when you finish/error
     // await client.close();
   }
 }
+
 run().catch(console.dir);
 
 app.get('/', (req, res) => {
