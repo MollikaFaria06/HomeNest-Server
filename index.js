@@ -43,13 +43,14 @@ async function run() {
     });
 
     // Get Single Property (GET by id)
-    const { ObjectId } = require('mongodb');
     app.get('/properties/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await propertyCollection.findOne(query);
-      res.send(result);
-    });
+  const id = req.params.id;
+
+  const result = await propertyCollection.findOne({ _id: id });
+  if (!result) return res.status(404).json({ message: 'Property not found' });
+  res.send(result);
+});
+
 
     // Delete Property
     app.delete('/properties/:id', async (req, res) => {
