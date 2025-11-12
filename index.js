@@ -23,28 +23,29 @@ async function run() {
     const propertyCollection = client.db("homeNestDB").collection("properties");
     const reviewCollection = client.db("homeNestDB").collection("reviews");
 
-    // Add Property
+
+    //Add Property
     app.post('/properties', async (req, res) => {
-      const property = req.body;
+  const property = req.body;
 
-      // Validate owner info
-      if (!property.owner || !property.owner.name || !property.owner.email) {
-        return res.status(400).json({ message: "Owner info (name & email) is required" });
-      }
+  // Validate owner info
+  if (!property.owner || !property.owner.name || !property.owner.email) {
+    return res.status(400).json({ message: "Owner info (name & email) is required" });
+  }
 
-      property.createdAt = new Date();
+  property.createdAt = new Date();
 
-      // Ensure unique string ID
-      if (!property._id) property._id = new Date().getTime().toString(16);
+  if (!property._id) property._id = new Date().getTime().toString(16);
 
-      try {
-        const result = await propertyCollection.insertOne(property);
-        res.status(201).json(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Failed to add property" });
-      }
-    });
+  try {
+    const result = await propertyCollection.insertOne(property);
+    res.status(201).json({ ...property, insertedId: result.insertedId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to add property" });
+  }
+});
+
 
     // Get All Properties with Search & Sort
     app.get('/properties', async (req, res) => {
@@ -81,21 +82,13 @@ async function run() {
       }
     });
 
-    // Get Single Property by ID
+    // Get Single Property by ID (works for both string IDs and ObjectId)
 app.get("/properties/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    let query;
-
-    // ✅ Safely handle both ObjectId and string-based _id
-    if (ObjectId.isValid(id)) {
-      query = { _id: new ObjectId(id) };
-    } else {
-      query = { _id: id };
-    }
-
-    const property = await propertyCollection.findOne(query);
+    
+    const property = await propertyCollection.findOne({ _id: id });
 
     if (!property) {
       return res.status(404).json({ message: "Property not found" });
@@ -109,48 +102,39 @@ app.get("/properties/:id", async (req, res) => {
 });
 
 
-
-    // Delete Property (only by owner)
     app.delete("/properties/:id", async (req, res) => {
   const id = req.params.id;
 
   try {
-    const result = await propertyCollection.deleteOne({
-      _id: new ObjectId(id),
-    });
+    const result = await propertyCollection.deleteOne({ _id: id }); // use string _id
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ message: "Property not found" });
     }
 
-    res.json(result);
+    res.json({ message: "Property deleted successfully" });
   } catch (error) {
     console.error("Delete error:", error);
     res.status(500).json({ message: "Failed to delete property" });
   }
 });
+
    // Update Property (only by owner)
-   app.put("/properties/:id", async (req, res) => {
+  app.put("/properties/:id", async (req, res) => {
   const { id } = req.params;
   const updatedData = req.body;
 
   try {
-    let filter;
-
-    // ✅ Handle both string IDs and ObjectIds safely
-    if (ObjectId.isValid(id)) {
-      filter = { _id: new ObjectId(id) };
-    } else {
-      filter = { _id: id }; // your custom string _id
-    }
-
-    const result = await propertyCollection.updateOne(filter, { $set: updatedData });
+    const result = await propertyCollection.updateOne(
+      { _id: id }, // always string
+      { $set: updatedData }
+    );
 
     if (result.matchedCount === 0) {
       return res.status(404).json({ message: "Property not found" });
     }
 
-    res.json({ message: "Property updated successfully", result });
+    res.json({ message: "Property updated successfully" });
   } catch (error) {
     console.error("Error updating property:", error);
     res.status(500).json({ message: "Failed to update property" });
@@ -159,17 +143,26 @@ app.get("/properties/:id", async (req, res) => {
 
 
 
-    // Add Review
+  // Add Review
     app.post('/reviews', async (req, res) => {
-      const review = req.body;
-      try {
-        const result = await reviewCollection.insertOne(review);
-        res.status(201).json(result);
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Failed to add review" });
-      }
-    });
+  const review = req.body;
+
+ 
+  if (!review.propertyId) {
+    return res.status(400).json({ message: "propertyId is required" });
+  }
+  review.propertyId = review.propertyId.toString();
+  review.createdAt = new Date();
+
+  try {
+    const result = await reviewCollection.insertOne(review);
+    res.status(201).json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to add review" });
+  }
+});
+
 
     // Get Reviews by Property ID
     app.get('/reviews/:propertyId', async (req, res) => {
