@@ -82,30 +82,82 @@ async function run() {
     });
 
     // Get Single Property by ID
-    app.get('/properties/:id', async (req, res) => {
-      const { id } = req.params;
-      const property = await propertyCollection.findOne({ _id: id });
-      if (!property) return res.status(404).json({ message: 'Property not found' });
-      res.json(property);
-    });
+app.get("/properties/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    let query;
+
+    // ✅ Safely handle both ObjectId and string-based _id
+    if (ObjectId.isValid(id)) {
+      query = { _id: new ObjectId(id) };
+    } else {
+      query = { _id: id };
+    }
+
+    const property = await propertyCollection.findOne(query);
+
+    if (!property) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+
+    res.json(property);
+  } catch (error) {
+    console.error("Error fetching property:", error);
+    res.status(500).json({ message: "Failed to fetch property" });
+  }
+});
+
+
 
     // Delete Property (only by owner)
-    app.delete('/properties/:id', async (req, res) => {
-      const { id } = req.params;
-      const userEmail = req.query.email; // send logged-in user's email from frontend
-      if (!userEmail) return res.status(400).json({ message: "Email is required" });
+    app.delete("/properties/:id", async (req, res) => {
+  const id = req.params.id;
 
-      try {
-        const result = await propertyCollection.deleteOne({ _id: id, "owner.email": userEmail });
-        if (result.deletedCount === 0)
-          return res.status(404).json({ message: "Property not found or unauthorized" });
-
-        res.json({ message: "Property deleted successfully", deletedCount: result.deletedCount });
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Failed to delete property" });
-      }
+  try {
+    const result = await propertyCollection.deleteOne({
+      _id: new ObjectId(id),
     });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Delete error:", error);
+    res.status(500).json({ message: "Failed to delete property" });
+  }
+});
+   // Update Property (only by owner)
+   app.put("/properties/:id", async (req, res) => {
+  const { id } = req.params;
+  const updatedData = req.body;
+
+  try {
+    let filter;
+
+    // ✅ Handle both string IDs and ObjectIds safely
+    if (ObjectId.isValid(id)) {
+      filter = { _id: new ObjectId(id) };
+    } else {
+      filter = { _id: id }; // your custom string _id
+    }
+
+    const result = await propertyCollection.updateOne(filter, { $set: updatedData });
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+
+    res.json({ message: "Property updated successfully", result });
+  } catch (error) {
+    console.error("Error updating property:", error);
+    res.status(500).json({ message: "Failed to update property" });
+  }
+});
+
+
 
     // Add Review
     app.post('/reviews', async (req, res) => {
