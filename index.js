@@ -28,7 +28,6 @@ async function run() {
     app.post('/properties', async (req, res) => {
   const property = req.body;
 
-  // Validate owner info
   if (!property.owner || !property.owner.name || !property.owner.email) {
     return res.status(400).json({ message: "Owner info (name & email) is required" });
   }
