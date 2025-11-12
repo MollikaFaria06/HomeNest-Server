@@ -25,13 +25,26 @@ async function run() {
 
     // Add Property
     app.post('/properties', async (req, res) => {
-  const property = req.body;
-  property.createdAt = new Date();
-  if (!property._id) property._id = new Date().getTime().toString(16); // unique string ID
-  const result = await propertyCollection.insertOne(property);
-  res.send(result);
-});
+      const property = req.body;
 
+      // Validate owner info
+      if (!property.owner || !property.owner.name || !property.owner.email) {
+        return res.status(400).json({ message: "Owner info (name & email) is required" });
+      }
+
+      property.createdAt = new Date();
+
+      // Ensure unique string ID
+      if (!property._id) property._id = new Date().getTime().toString(16);
+
+      try {
+        const result = await propertyCollection.insertOne(property);
+        res.status(201).json(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to add property" });
+      }
+    });
 
     // Get All Properties with Search & Sort
     app.get('/properties', async (req, res) => {
@@ -54,36 +67,82 @@ async function run() {
       }
     });
 
-    // Get Single Property by ID (string or ObjectId)
-    app.get('/properties/:id', async (req, res) => {
-  const { id } = req.params;
-  const property = await propertyCollection.findOne({ _id: id }); // strictly string match
-  if (!property) return res.status(404).json({ message: 'Property not found' });
-  res.send(property);
-});
+    // Get Properties by Logged-in User
+    app.get('/user-properties', async (req, res) => {
+      const email = req.query.email;
+      if (!email) return res.status(400).json({ message: "Email is required" });
 
+      try {
+        const result = await propertyCollection.find({ "owner.email": email }).toArray();
+        res.json(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch user's properties" });
+      }
+    });
+
+    // Get Single Property by ID
+    app.get('/properties/:id', async (req, res) => {
+      const { id } = req.params;
+      const property = await propertyCollection.findOne({ _id: id });
+      if (!property) return res.status(404).json({ message: 'Property not found' });
+      res.json(property);
+    });
+
+    // Delete Property (only by owner)
+    app.delete('/properties/:id', async (req, res) => {
+      const { id } = req.params;
+      const userEmail = req.query.email; // send logged-in user's email from frontend
+      if (!userEmail) return res.status(400).json({ message: "Email is required" });
+
+      try {
+        const result = await propertyCollection.deleteOne({ _id: id, "owner.email": userEmail });
+        if (result.deletedCount === 0)
+          return res.status(404).json({ message: "Property not found or unauthorized" });
+
+        res.json({ message: "Property deleted successfully", deletedCount: result.deletedCount });
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to delete property" });
+      }
+    });
 
     // Add Review
     app.post('/reviews', async (req, res) => {
       const review = req.body;
-      const result = await reviewCollection.insertOne(review);
-      res.send(result);
+      try {
+        const result = await reviewCollection.insertOne(review);
+        res.status(201).json(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to add review" });
+      }
     });
 
-    // Get Reviews by Property
+    // Get Reviews by Property ID
     app.get('/reviews/:propertyId', async (req, res) => {
       const propertyId = req.params.propertyId;
-      const result = await reviewCollection.find({ propertyId }).toArray();
-      res.send(result);
+      try {
+        const result = await reviewCollection.find({ propertyId }).toArray();
+        res.json(result);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch reviews" });
+      }
     });
 
-      // Get Reviews submitted by logged-in user
+    // Get Reviews submitted by logged-in user
     app.get('/my-ratings', async (req, res) => {
       const email = req.query.email;
-      if (!email) return res.status(400).send({ message: 'Email is required' });
+      if (!email) return res.status(400).json({ message: 'Email is required' });
 
-      const reviews = await reviewCollection.find({ reviewerEmail: email }).toArray();
-      res.send(reviews);
+      try {
+        const reviews = await reviewCollection.find({ reviewerEmail: email }).toArray();
+        res.json(reviews);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch user's ratings" });
+      }
     });
 
     console.log("HomeNest API ready!");
