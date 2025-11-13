@@ -11,7 +11,7 @@ const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173','https://homenest-6904d.web.app','https://homenest-6904d.firebaseapp.com','https://home-nest-server-silk.vercel.app'],
   credentials: true,
 }));
 app.use(express.json());
@@ -183,7 +183,7 @@ async function run() {
     });
 
     console.log("HomeNest API ready!");
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("MongoDB connected!");
 
   } finally {

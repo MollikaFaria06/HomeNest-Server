@@ -1,3 +1,4 @@
 node_modules
 .env
 homenest-firebase-adminsdk.json
+.vercel
